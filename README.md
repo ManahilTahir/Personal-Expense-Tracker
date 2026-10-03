@@ -6,12 +6,15 @@ A simple and beginner-friendly desktop application to track personal expenses, b
 
 - Add an expense with **Date**, **Category**, **Description**, and **Amount**.
 - Predefined categories: Food, Transport, Shopping, Bills, Education, Health, Other.
+- **Live expense list** on the main window — added expenses appear immediately.
+- **Update Expense** — select an expense and change its date, category, description, or amount.
+- **Currency selector** — choose between USD, PKR, AED, EUR, GBP, INR, SAR. Totals and the list update instantly, and the logo icon reflects the selected currency.
 - View all expenses in a clean table (`ttk.Treeview`).
 - Search expenses by **date**, **category**, or **description**.
 - Delete a selected expense with confirmation.
 - Automatically updates **Total Expenses** and **Number of Expenses**.
 - Validates empty fields and invalid amounts.
-- Expenses are saved to `expenses.json` and loaded automatically on startup.
+- Expenses and currency preference are saved to `expenses.json` and loaded automatically on startup.
 
 ## Requirements
 
@@ -28,15 +31,16 @@ python main.py
 | File             | Description                              |
 |------------------|------------------------------------------|
 | `main.py`        | Main application code (Tkinter GUI).     |
-| `expenses.json`  | Stores expenses data (auto-created).     |
+| `expenses.json`  | Stores expenses + currency (auto-created). |
 | `README.md`      | This documentation file.                 |
 
 ## GUI Overview
 
-- A money-related logo (green circle with `$`) drawn using Tkinter Canvas.
-- Heading: **Final Expense Tracker**.
-- Stats panel showing total expenses and count.
-- Buttons: Add Expense, View Expenses, Search Expense, Delete Expense, Exit.
+- A square money-related logo (green circle with the selected currency symbol) drawn using Tkinter Canvas.
+- Centered, colored heading: **Final Expense Tracker**.
+- Stats panel showing total expenses and count, plus a currency dropdown.
+- Buttons: Add Expense, View Expenses, Search Expense, Update Expense, Delete Expense, Exit.
+- A live expense list table below the buttons.
 
 ## Notes
 

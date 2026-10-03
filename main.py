@@ -1,57 +1,81 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 import json
 import os
 from datetime import datetime
 
 DATA_FILE = "expenses.json"
 CATEGORIES = ["Food", "Transport", "Shopping", "Bills", "Education", "Health", "Other"]
+CURRENCIES = {"USD": "$", "PKR": "Rs", "AED": "AED", "EUR": "€", "GBP": "£", "INR": "₹", "SAR": "SAR"}
+
+HEADER_BG = "#1a1a2e"
+ACCENT = "#f1c40f"
 
 
 class ExpenseTracker:
     def __init__(self, root):
         self.root = root
         self.root.title("Final Expense Tracker")
-        self.root.geometry("700x520")
+        self.root.geometry("780x600")
         self.root.resizable(False, False)
 
         self.expenses = []
+        self.currency = "USD"
         self.load_expenses()
 
         self.build_header()
         self.build_stats()
         self.build_buttons()
+        self.build_list()
 
     def build_header(self):
-        header = tk.Frame(self.root, bg="#2c3e50")
+        header = tk.Frame(self.root, bg=HEADER_BG)
         header.pack(fill="x")
 
-        self.draw_logo(header)
+        center = tk.Frame(header, bg=HEADER_BG)
+        center.pack(anchor="center", pady=8)
+
+        self.logo_canvas = tk.Canvas(center, width=56, height=56, bg=HEADER_BG, highlightthickness=0)
+        self.logo_canvas.pack(side="left", padx=10)
+        self.draw_logo()
+
+        tk.Label(
+            center,
+            text="Final Expense Tracker",
+            font=("Helvetica", 22, "bold"),
+            fg=ACCENT,
+            bg=HEADER_BG,
+        ).pack(side="left", padx=10)
 
         tk.Label(
             header,
-            text="Final Expense Tracker",
-            font=("Helvetica", 20, "bold"),
-            fg="white",
-            bg="#2c3e50",
-            pady=10,
-        ).pack(side="left", padx=10)
+            text="Track  •  Manage  •  Save",
+            font=("Helvetica", 10, "italic"),
+            fg="#95a5a6",
+            bg=HEADER_BG,
+        ).pack(anchor="center", pady=(0, 8))
 
-    def draw_logo(self, parent):
-        canvas = tk.Canvas(parent, width=60, height=60, bg="#2c3e50", highlightthickness=0)
-        canvas.pack(side="left", padx=15, pady=10)
-        canvas.create_oval(6, 6, 54, 54, fill="#27ae60", outline="white", width=2)
-        canvas.create_text(30, 30, text="$", font=("Helvetica", 24, "bold"), fill="white")
+    def draw_logo(self):
+        self.logo_canvas.delete("all")
+        sym = CURRENCIES.get(self.currency, "$")
+        size = 22 if len(sym) == 1 else (15 if len(sym) == 2 else 12)
+        self.logo_canvas.create_oval(4, 4, 52, 52, fill="#27ae60", outline=ACCENT, width=2)
+        self.logo_canvas.create_text(28, 28, text=sym, font=("Helvetica", size, "bold"), fill="white")
 
     def build_stats(self):
         stats = tk.Frame(self.root, bg="#ecf0f1")
-        stats.pack(fill="x", pady=10)
+        stats.pack(fill="x", pady=5)
 
         self.total_label = tk.Label(stats, text="Total Expenses: $0.00", font=("Helvetica", 12, "bold"), bg="#ecf0f1", fg="#2c3e50")
-        self.total_label.pack(side="left", padx=30, pady=10)
+        self.total_label.pack(side="left", padx=20, pady=8)
 
         self.count_label = tk.Label(stats, text="Number of Expenses: 0", font=("Helvetica", 12, "bold"), bg="#ecf0f1", fg="#2c3e50")
-        self.count_label.pack(side="left", padx=30, pady=10)
+        self.count_label.pack(side="left", padx=20, pady=8)
+
+        self.currency_var = tk.StringVar(value=self.currency)
+        ttk.Combobox(stats, textvariable=self.currency_var, values=list(CURRENCIES.keys()), state="readonly", width=8, font=("Helvetica", 11)).pack(side="right", padx=(5, 20), pady=8)
+        tk.Label(stats, text="Currency:", font=("Helvetica", 11, "bold"), bg="#ecf0f1", fg="#2c3e50").pack(side="right", pady=8)
+        self.currency_var.trace_add("write", self.on_currency_change)
 
         self.update_stats()
 
@@ -60,72 +84,131 @@ class ExpenseTracker:
         btn_frame.pack(fill="x", pady=5)
 
         buttons = [
-            ("Add Expense", self.add_expense),
-            ("View Expenses", self.view_expenses),
-            ("Search Expense", self.search_expense),
-            ("Delete Expense", self.delete_expense),
-            ("Exit", self.root.quit),
+            ("Add Expense", "#27ae60", "#229954", self.add_expense),
+            ("View Expenses", "#3498db", "#2980b9", self.view_expenses),
+            ("Search Expense", "#9b59b6", "#8e44ad", self.search_expense),
+            ("Update Expense", "#f39c12", "#d68910", self.update_expense),
+            ("Delete Expense", "#e74c3c", "#c0392b", self.delete_expense),
+            ("Exit", "#7f8c8d", "#616e70", self.root.quit),
         ]
 
-        for text, cmd in buttons:
+        for text, bg, active, cmd in buttons:
             tk.Button(
                 btn_frame,
                 text=text,
-                font=("Helvetica", 11),
-                width=15,
-                bg="#3498db",
+                font=("Helvetica", 11, "bold"),
+                width=13,
+                bg=bg,
                 fg="white",
-                activebackground="#2980b9",
+                activebackground=active,
                 activeforeground="white",
                 relief="flat",
+                cursor="hand2",
                 command=cmd,
-            ).pack(side="left", padx=8, pady=10)
+            ).pack(side="left", padx=6, pady=10)
+
+    def build_list(self):
+        list_frame = tk.Frame(self.root)
+        list_frame.pack(fill="both", expand=True, padx=10, pady=(5, 10))
+
+        tk.Label(list_frame, text="Expense List", font=("Helvetica", 12, "bold"), fg="#2c3e50", anchor="w").pack(fill="x", pady=(0, 4))
+
+        columns = ("Date", "Category", "Description", "Amount")
+        self.tree = ttk.Treeview(list_frame, columns=columns, show="headings")
+        for col in columns:
+            self.tree.heading(col, text=col)
+        self.tree.column("Date", width=110, anchor="center")
+        self.tree.column("Category", width=110, anchor="center")
+        self.tree.column("Description", width=300, anchor="w")
+        self.tree.column("Amount", width=120, anchor="center")
+
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self.refresh_tree()
 
     def load_expenses(self):
+        self.expenses = []
+        self.currency = "USD"
         try:
             if os.path.exists(DATA_FILE):
                 with open(DATA_FILE, "r") as f:
-                    self.expenses = json.load(f)
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    self.expenses = data.get("expenses", [])
+                    self.currency = data.get("currency", "USD")
+                elif isinstance(data, list):
+                    self.expenses = data
         except Exception:
             self.expenses = []
+            self.currency = "USD"
 
     def save_expenses(self):
         try:
             with open(DATA_FILE, "w") as f:
-                json.dump(self.expenses, f, indent=4)
+                json.dump({"currency": self.currency, "expenses": self.expenses}, f, indent=4)
         except Exception as e:
             messagebox.showerror("Error", f"Could not save expenses:\n{e}")
+
+    def format_amount(self, amount):
+        sym = CURRENCIES.get(self.currency, "$")
+        if len(sym) == 1:
+            return f"{sym}{amount:.2f}"
+        return f"{sym} {amount:.2f}"
 
     def update_stats(self):
         try:
             total = sum(float(e.get("amount", 0)) for e in self.expenses)
         except Exception:
             total = 0.0
-        self.total_label.config(text=f"Total Expenses: ${total:.2f}")
+        self.total_label.config(text=f"Total Expenses: {self.format_amount(total)}")
         self.count_label.config(text=f"Number of Expenses: {len(self.expenses)}")
 
-    def add_expense(self):
+    def refresh_tree(self):
+        self.tree.delete(*self.tree.get_children())
+        for idx, e in enumerate(self.expenses):
+            self.tree.insert(
+                "", "end", iid=idx,
+                values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), self.format_amount(float(e.get("amount", 0)))),
+            )
+
+    def on_currency_change(self, *args):
+        self.currency = self.currency_var.get()
+        self.save_expenses()
+        self.draw_logo()
+        self.update_stats()
+        self.refresh_tree()
+
+    def open_expense_form(self, existing_index=None):
+        is_update = existing_index is not None
+        existing = self.expenses[existing_index] if is_update else {}
+
         form = tk.Toplevel(self.root)
-        form.title("Add Expense")
-        form.geometry("320x300")
+        form.title("Update Expense" if is_update else "Add Expense")
+        form.geometry("340x320")
         form.resizable(False, False)
         form.grab_set()
 
         tk.Label(form, text="Date (YYYY-MM-DD):", font=("Helvetica", 10)).pack(pady=(15, 2))
         date_entry = tk.Entry(form, font=("Helvetica", 11))
-        date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        date_entry.insert(0, existing.get("date", datetime.now().strftime("%Y-%m-%d")))
         date_entry.pack(pady=2)
 
         tk.Label(form, text="Category:", font=("Helvetica", 10)).pack(pady=(5, 2))
-        category_var = tk.StringVar(value=CATEGORIES[0])
+        category_var = tk.StringVar(value=existing.get("category", CATEGORIES[0]))
         ttk.Combobox(form, textvariable=category_var, values=CATEGORIES, state="readonly", font=("Helvetica", 11)).pack(pady=2)
 
         tk.Label(form, text="Description:", font=("Helvetica", 10)).pack(pady=(5, 2))
         desc_entry = tk.Entry(form, font=("Helvetica", 11))
+        desc_entry.insert(0, existing.get("description", ""))
         desc_entry.pack(pady=2)
 
         tk.Label(form, text="Amount:", font=("Helvetica", 10)).pack(pady=(5, 2))
         amount_entry = tk.Entry(form, font=("Helvetica", 11))
+        if is_update:
+            amount_entry.insert(0, str(existing.get("amount", "")))
         amount_entry.pack(pady=2)
 
         def save():
@@ -146,18 +229,31 @@ class ExpenseTracker:
                 messagebox.showwarning("Invalid Amount", "Amount must be a positive number.")
                 return
 
-            self.expenses.append({
-                "date": date,
-                "category": category,
-                "description": description,
-                "amount": amount_val,
-            })
+            record = {"date": date, "category": category, "description": description, "amount": amount_val}
+            if is_update:
+                self.expenses[existing_index] = record
+                msg = "Expense updated successfully."
+            else:
+                self.expenses.append(record)
+                msg = "Expense added successfully."
+
             self.save_expenses()
             self.update_stats()
+            self.refresh_tree()
             form.destroy()
-            messagebox.showinfo("Success", "Expense added successfully.")
+            messagebox.showinfo("Success", msg)
 
-        tk.Button(form, text="Save", font=("Helvetica", 11), bg="#27ae60", fg="white", width=12, command=save).pack(pady=15)
+        tk.Button(form, text="Save", font=("Helvetica", 11, "bold"), bg="#27ae60", fg="white", width=12, command=save).pack(pady=15)
+
+    def add_expense(self):
+        self.open_expense_form()
+
+    def update_expense(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Please select an expense from the list to update.")
+            return
+        self.open_expense_form(int(selected[0]))
 
     def view_expenses(self):
         if not self.expenses:
@@ -166,22 +262,20 @@ class ExpenseTracker:
 
         view = tk.Toplevel(self.root)
         view.title("View Expenses")
-        view.geometry("620x400")
+        view.geometry("640x420")
         view.grab_set()
 
         tree = ttk.Treeview(view, columns=("Date", "Category", "Description", "Amount"), show="headings")
-        tree.heading("Date", text="Date")
-        tree.heading("Category", text="Category")
-        tree.heading("Description", text="Description")
-        tree.heading("Amount", text="Amount")
-        tree.column("Date", width=110)
-        tree.column("Category", width=110)
-        tree.column("Description", width=250)
-        tree.column("Amount", width=100)
+        for col in ("Date", "Category", "Description", "Amount"):
+            tree.heading(col, text=col)
+        tree.column("Date", width=110, anchor="center")
+        tree.column("Category", width=110, anchor="center")
+        tree.column("Description", width=280, anchor="w")
+        tree.column("Amount", width=120, anchor="center")
         tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-        for idx, e in enumerate(self.expenses):
-            tree.insert("", "end", iid=idx, values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), f"${e.get('amount', 0):.2f}"))
+        for e in self.expenses:
+            tree.insert("", "end", values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), self.format_amount(float(e.get("amount", 0)))))
 
     def search_expense(self):
         search = tk.Toplevel(self.root)
@@ -206,7 +300,6 @@ class ExpenseTracker:
                 return
 
             results = [e for e in self.expenses if keyword in str(e.get(field, "")).lower()]
-
             search.destroy()
 
             if not results:
@@ -215,67 +308,38 @@ class ExpenseTracker:
 
             result_win = tk.Toplevel(self.root)
             result_win.title("Search Results")
-            result_win.geometry("620x400")
+            result_win.geometry("640x420")
             result_win.grab_set()
 
             tree = ttk.Treeview(result_win, columns=("Date", "Category", "Description", "Amount"), show="headings")
-            tree.heading("Date", text="Date")
-            tree.heading("Category", text="Category")
-            tree.heading("Description", text="Description")
-            tree.heading("Amount", text="Amount")
-            tree.column("Date", width=110)
-            tree.column("Category", width=110)
-            tree.column("Description", width=250)
-            tree.column("Amount", width=100)
+            for col in ("Date", "Category", "Description", "Amount"):
+                tree.heading(col, text=col)
+            tree.column("Date", width=110, anchor="center")
+            tree.column("Category", width=110, anchor="center")
+            tree.column("Description", width=280, anchor="w")
+            tree.column("Amount", width=120, anchor="center")
             tree.pack(fill="both", expand=True, padx=10, pady=10)
 
             for e in results:
-                tree.insert("", "end", values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), f"${e.get('amount', 0):.2f}"))
+                tree.insert("", "end", values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), self.format_amount(float(e.get("amount", 0)))))
 
-        tk.Button(search, text="Search", font=("Helvetica", 11), bg="#3498db", fg="white", width=12, command=do_search).pack(pady=15)
+        tk.Button(search, text="Search", font=("Helvetica", 11, "bold"), bg="#3498db", fg="white", width=12, command=do_search).pack(pady=15)
 
     def delete_expense(self):
-        if not self.expenses:
-            messagebox.showinfo("No Expenses", "There are no expenses to delete.")
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Please select an expense from the list to delete.")
             return
 
-        delete_win = tk.Toplevel(self.root)
-        delete_win.title("Delete Expense")
-        delete_win.geometry("620x420")
-        delete_win.grab_set()
+        if not messagebox.askyesno("Confirm Delete", "Are you sure you want to delete the selected expense?"):
+            return
 
-        tree = ttk.Treeview(delete_win, columns=("Date", "Category", "Description", "Amount"), show="headings")
-        tree.heading("Date", text="Date")
-        tree.heading("Category", text="Category")
-        tree.heading("Description", text="Description")
-        tree.heading("Amount", text="Amount")
-        tree.column("Date", width=110)
-        tree.column("Category", width=110)
-        tree.column("Description", width=250)
-        tree.column("Amount", width=100)
-        tree.pack(fill="both", expand=True, padx=10, pady=10)
-
-        for idx, e in enumerate(self.expenses):
-            tree.insert("", "end", iid=idx, values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), f"${e.get('amount', 0):.2f}"))
-
-        def do_delete():
-            selected = tree.selection()
-            if not selected:
-                messagebox.showwarning("No Selection", "Please select an expense to delete.")
-                return
-
-            confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this expense?")
-            if not confirm:
-                return
-
-            for item in selected:
-                del self.expenses[int(item)]
-            self.save_expenses()
-            self.update_stats()
-            delete_win.destroy()
-            messagebox.showinfo("Deleted", "Expense deleted successfully.")
-
-        tk.Button(delete_win, text="Delete Selected", font=("Helvetica", 11), bg="#e74c3c", fg="white", width=15, command=do_delete).pack(pady=10)
+        for item in sorted(selected, reverse=True):
+            del self.expenses[int(item)]
+        self.save_expenses()
+        self.update_stats()
+        self.refresh_tree()
+        messagebox.showinfo("Deleted", "Expense deleted successfully.")
 
 
 def main():

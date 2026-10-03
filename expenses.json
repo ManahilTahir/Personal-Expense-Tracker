@@ -1,0 +1,23 @@
+{
+    "currency": "PKR",
+    "expenses": [
+        {
+            "date": "2026-10-03",
+            "category": "Shopping",
+            "description": "Shirt",
+            "amount": 1500.0
+        },
+        {
+            "date": "2026-10-03",
+            "category": "Food",
+            "description": "Lunch",
+            "amount": 12.5
+        },
+        {
+            "date": "2026-10-03",
+            "category": "Bills",
+            "description": "Electricity",
+            "amount": 300.0
+        }
+    ]
+}
