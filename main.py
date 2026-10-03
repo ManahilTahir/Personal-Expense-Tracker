@@ -2,9 +2,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import json
 import os
+import struct
+import zlib
 from datetime import datetime
 
 DATA_FILE = "expenses.json"
+LOGO_FILE = "logo.png"
 CATEGORIES = ["Food", "Transport", "Shopping", "Bills", "Education", "Health", "Other"]
 CURRENCIES = {"USD": "$", "PKR": "Rs", "AED": "AED", "EUR": "€", "GBP": "£", "INR": "₹", "SAR": "SAR"}
 
@@ -12,21 +15,108 @@ HEADER_BG = "#1a1a2e"
 ACCENT = "#f1c40f"
 
 
+def write_png(path, width, height, pixels):
+    def chunk(tag, data):
+        c = tag + data
+        crc = zlib.crc32(c) & 0xffffffff
+        return struct.pack(">I", len(data)) + c + struct.pack(">I", crc)
+
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    raw = bytearray()
+    stride = width * 4
+    for y in range(height):
+        raw.append(0)
+        raw.extend(pixels[y * stride:(y + 1) * stride])
+    idat = zlib.compress(bytes(raw), 9)
+    with open(path, "wb") as f:
+        f.write(sig)
+        f.write(chunk(b"IHDR", ihdr))
+        f.write(chunk(b"IDAT", idat))
+        f.write(chunk(b"IEND", b""))
+
+
+def ensure_logo(path=LOGO_FILE, size=128):
+    if os.path.exists(path):
+        return
+    cx = cy = size // 2
+    r_outer = size // 2 - 2
+    r_ring_in = r_outer - 6
+    green = (39, 174, 96)
+    gold = (241, 196, 15)
+    white = (255, 255, 255)
+
+    glyph = [
+        [0, 0, 1, 1, 1, 0, 0],
+        [0, 1, 1, 1, 1, 1, 0],
+        [1, 1, 0, 1, 0, 0, 0],
+        [1, 1, 1, 1, 0, 0, 0],
+        [0, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 1, 1, 1, 0],
+        [0, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 1, 1, 1, 1],
+        [0, 0, 0, 1, 0, 1, 1],
+        [0, 1, 1, 1, 1, 1, 0],
+        [0, 0, 1, 1, 1, 0, 0],
+    ]
+    gw, gh = 7, 11
+    scale = 6
+    glyph_w = gw * scale
+    glyph_h = gh * scale
+    ox = cx - glyph_w // 2
+    oy = cy - glyph_h // 2
+
+    pixels = bytearray(size * size * 4)
+    for y in range(size):
+        for x in range(size):
+            dx = x - cx
+            dy = y - cy
+            d = (dx * dx + dy * dy) ** 0.5
+            if d <= r_ring_in:
+                r, g, b = green
+            elif d <= r_outer:
+                r, g, b = gold
+            else:
+                continue
+            gx = x - ox
+            gy = y - oy
+            if 0 <= gx < glyph_w and 0 <= gy < glyph_h:
+                if glyph[gy // scale][gx // scale] == 1:
+                    r, g, b = white
+            idx = (y * size + x) * 4
+            pixels[idx] = r
+            pixels[idx + 1] = g
+            pixels[idx + 2] = b
+            pixels[idx + 3] = 255
+    write_png(path, size, size, pixels)
+
+
 class ExpenseTracker:
     def __init__(self, root):
         self.root = root
         self.root.title("Final Expense Tracker")
-        self.root.geometry("780x600")
+        self.root.geometry("780x640")
         self.root.resizable(False, False)
 
         self.expenses = []
         self.currency = "USD"
+        self.logo_img = None
         self.load_expenses()
+        self.setup_logo()
 
         self.build_header()
         self.build_stats()
         self.build_buttons()
+        self.build_footer()
         self.build_list()
+
+    def setup_logo(self):
+        try:
+            ensure_logo()
+            self.logo_img = tk.PhotoImage(file=LOGO_FILE)
+            self.root.iconphoto(False, self.logo_img)
+        except Exception:
+            self.logo_img = None
 
     def build_header(self):
         header = tk.Frame(self.root, bg=HEADER_BG)
@@ -35,9 +125,13 @@ class ExpenseTracker:
         center = tk.Frame(header, bg=HEADER_BG)
         center.pack(anchor="center", pady=8)
 
-        self.logo_canvas = tk.Canvas(center, width=56, height=56, bg=HEADER_BG, highlightthickness=0)
-        self.logo_canvas.pack(side="left", padx=10)
-        self.draw_logo()
+        if self.logo_img:
+            self.logo_disp = self.logo_img.subsample(2, 2)
+            tk.Label(center, image=self.logo_disp, bg=HEADER_BG).pack(side="left", padx=10)
+        else:
+            self.logo_canvas = tk.Canvas(center, width=56, height=56, bg=HEADER_BG, highlightthickness=0)
+            self.logo_canvas.pack(side="left", padx=10)
+            self.draw_logo()
 
         tk.Label(
             center,
@@ -106,6 +200,18 @@ class ExpenseTracker:
                 cursor="hand2",
                 command=cmd,
             ).pack(side="left", padx=6, pady=10)
+
+    def build_footer(self):
+        footer = tk.Frame(self.root, bg=HEADER_BG)
+        footer.pack(side="bottom", fill="x")
+        tk.Label(
+            footer,
+            text="developed by : Manahil Tahir",
+            font=("Helvetica", 10, "bold"),
+            fg=ACCENT,
+            bg=HEADER_BG,
+            pady=6,
+        ).pack()
 
     def build_list(self):
         list_frame = tk.Frame(self.root)
@@ -177,7 +283,8 @@ class ExpenseTracker:
     def on_currency_change(self, *args):
         self.currency = self.currency_var.get()
         self.save_expenses()
-        self.draw_logo()
+        if hasattr(self, "logo_canvas"):
+            self.draw_logo()
         self.update_stats()
         self.refresh_tree()
 
