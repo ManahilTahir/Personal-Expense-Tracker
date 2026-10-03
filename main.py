@@ -39,9 +39,11 @@ def write_png(path, width, height, pixels):
 def ensure_logo(path=LOGO_FILE, size=128):
     if os.path.exists(path):
         return
-    cx = cy = size // 2
-    r_outer = size // 2 - 2
-    r_ring_in = r_outer - 6
+    ss = 4
+    S = size * ss
+    cx = cy = S / 2.0
+    r_outer = S / 2.0 - 2
+    r_green = r_outer - 3 * ss
     green = (39, 174, 96)
     gold = (241, 196, 15)
     white = (255, 255, 255)
@@ -60,49 +62,83 @@ def ensure_logo(path=LOGO_FILE, size=128):
         [0, 0, 1, 1, 1, 0, 0],
     ]
     gw, gh = 7, 11
-    scale = 6
-    glyph_w = gw * scale
-    glyph_h = gh * scale
-    ox = cx - glyph_w // 2
-    oy = cy - glyph_h // 2
+    pix = max(1, int(r_green * 1.15) // gh)
+    glyph_w = gw * pix
+    glyph_h = gh * pix
+    ox = int(cx - glyph_w / 2)
+    oy = int(cy - glyph_h / 2)
 
-    pixels = bytearray(size * size * 4)
-    for y in range(size):
-        for x in range(size):
+    mask = bytearray(S * S)
+    for y in range(S):
+        for x in range(S):
+            gx = x - ox
+            gy = y - oy
+            if 0 <= gx < glyph_w and 0 <= gy < glyph_h:
+                if glyph[gy // pix][gx // pix]:
+                    mask[y * S + x] = 1
+
+    big = bytearray(S * S * 4)
+    for y in range(S):
+        for x in range(S):
             dx = x - cx
             dy = y - cy
             d = (dx * dx + dy * dy) ** 0.5
-            if d <= r_ring_in:
+            idx = (y * S + x) * 4
+            if d <= r_green:
                 r, g, b = green
             elif d <= r_outer:
                 r, g, b = gold
             else:
                 continue
-            gx = x - ox
-            gy = y - oy
-            if 0 <= gx < glyph_w and 0 <= gy < glyph_h:
-                if glyph[gy // scale][gx // scale] == 1:
-                    r, g, b = white
-            idx = (y * size + x) * 4
-            pixels[idx] = r
-            pixels[idx + 1] = g
-            pixels[idx + 2] = b
-            pixels[idx + 3] = 255
+            if mask[y * S + x]:
+                r, g, b = white
+            big[idx] = r
+            big[idx + 1] = g
+            big[idx + 2] = b
+            big[idx + 3] = 255
+
+    pixels = bytearray(size * size * 4)
+    n = ss * ss
+    for y in range(size):
+        for x in range(size):
+            R = G = B = A = 0
+            for dy in range(ss):
+                for dx in range(ss):
+                    i = ((y * ss + dy) * S + (x * ss + dx)) * 4
+                    R += big[i]
+                    G += big[i + 1]
+                    B += big[i + 2]
+                    A += big[i + 3]
+            i = (y * size + x) * 4
+            pixels[i] = R // n
+            pixels[i + 1] = G // n
+            pixels[i + 2] = B // n
+            pixels[i + 3] = A // n
     write_png(path, size, size, pixels)
 
 
 class ExpenseTracker:
     def __init__(self, root):
         self.root = root
-        self.root.title("Final Expense Tracker")
-        self.root.geometry("780x720")
-        self.root.resizable(False, False)
+        self.root.title("Personal Expense Tracker")
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        w = min(820, sw - 40)
+        h = min(760, sh - 80)
+        self.root.geometry(f"{w}x{h}")
+        self.root.minsize(720, 520)
+        self.root.resizable(True, True)
 
         self.expenses = []
         self.currency = "USD"
         self.logo_img = None
         self.load_expenses()
         self.setup_logo()
+
+        try:
+            ttk.Style().theme_use("clam")
+        except Exception:
+            pass
 
         self.build_header()
         self.build_stats()
@@ -137,7 +173,7 @@ class ExpenseTracker:
 
         tk.Label(
             center,
-            text="Final Expense Tracker",
+            text="Personal Expense Tracker",
             font=("Helvetica", 22, "bold"),
             fg=ACCENT,
             bg=HEADER_BG,
@@ -146,8 +182,8 @@ class ExpenseTracker:
         tk.Label(
             header,
             text="Track  •  Manage  •  Save",
-            font=("Helvetica", 10, "italic"),
-            fg="#95a5a6",
+            font=("Helvetica", 13, "italic"),
+            fg="#bdc3c7",
             bg=HEADER_BG,
         ).pack(anchor="center", pady=(0, 8))
 
@@ -188,12 +224,12 @@ class ExpenseTracker:
             ("Exit", "#7f8c8d", "#616e70", self.root.quit),
         ]
 
-        for text, bg, active, cmd in buttons:
+        for i, (text, bg, active, cmd) in enumerate(buttons):
             tk.Button(
                 btn_frame,
                 text=text,
                 font=("Helvetica", 11, "bold"),
-                width=13,
+                height=2,
                 bg=bg,
                 fg="white",
                 activebackground=active,
@@ -201,7 +237,8 @@ class ExpenseTracker:
                 relief="flat",
                 cursor="hand2",
                 command=cmd,
-            ).pack(side="left", padx=6, pady=10)
+            ).grid(row=0, column=i, sticky="ew", padx=4, pady=10)
+            btn_frame.grid_columnconfigure(i, weight=1)
 
     def build_slicer(self):
         bar = tk.Frame(self.root, bg="#ecf0f1")
@@ -239,17 +276,18 @@ class ExpenseTracker:
         panel = tk.Frame(self.root, bg="#2c3e50")
         panel.pack(side="bottom", fill="x")
 
-        self.sum_total = tk.Label(panel, text="Total: $0.00", font=("Helvetica", 11, "bold"), fg=ACCENT, bg="#2c3e50")
-        self.sum_total.pack(side="left", padx=15, pady=6)
-
-        self.sum_duration = tk.Label(panel, text="Duration: N/A", font=("Helvetica", 11, "bold"), fg="white", bg="#2c3e50")
-        self.sum_duration.pack(side="left", padx=15, pady=6)
-
-        self.sum_categories = tk.Label(panel, text="Categories: 0", font=("Helvetica", 11, "bold"), fg="white", bg="#2c3e50")
-        self.sum_categories.pack(side="left", padx=15, pady=6)
-
-        self.sum_count = tk.Label(panel, text="Count: 0", font=("Helvetica", 11, "bold"), fg="white", bg="#2c3e50")
-        self.sum_count.pack(side="left", padx=15, pady=6)
+        name_color = "#bdc3c7"
+        value_color = ACCENT
+        specs = ["Total", "Duration", "Categories", "Count"]
+        targets = []
+        for name in specs:
+            cell = tk.Frame(panel, bg="#2c3e50")
+            cell.pack(side="left", expand=True, fill="x", padx=12, pady=8)
+            tk.Label(cell, text=name, font=("Helvetica", 11, "bold"), fg=name_color, bg="#2c3e50").pack(side="left", padx=(0, 6))
+            val = tk.Label(cell, text="0", font=("Helvetica", 11, "bold"), fg=value_color, bg="#2c3e50")
+            val.pack(side="left")
+            targets.append(val)
+        self.sum_total, self.sum_duration, self.sum_categories, self.sum_count = targets
 
     def build_list(self):
         list_frame = tk.Frame(self.root)
@@ -257,19 +295,28 @@ class ExpenseTracker:
 
         tk.Label(list_frame, text="Expense List", font=("Helvetica", 12, "bold"), fg="#2c3e50", anchor="w").pack(fill="x", pady=(0, 4))
 
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=("Helvetica", 11, "bold"), background="#2c3e50", foreground="white", relief="flat")
+        style.map("Treeview.Heading", background=[("active", "#1a1a2e")])
+        style.configure("Treeview", font=("Helvetica", 10), rowheight=24, fieldbackground="white")
+
         columns = ("Date", "Category", "Description", "Amount")
         self.tree = ttk.Treeview(list_frame, columns=columns, show="headings")
         for col in columns:
             self.tree.heading(col, text=col)
-        self.tree.column("Date", width=110, anchor="center")
-        self.tree.column("Category", width=110, anchor="center")
-        self.tree.column("Description", width=300, anchor="w")
-        self.tree.column("Amount", width=120, anchor="center")
+        self.tree.column("Date", width=120, anchor="center")
+        self.tree.column("Category", width=120, anchor="center")
+        self.tree.column("Description", width=320, anchor="w")
+        self.tree.column("Amount", width=140, anchor="center")
 
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
+        wheel = lambda e: self.tree.yview_scroll(int(-e.delta / 120), "units")
+        self.tree.bind("<MouseWheel>", wheel)
+        list_frame.bind("<MouseWheel>", wheel)
 
         self.refresh_tree()
 
@@ -288,6 +335,12 @@ class ExpenseTracker:
         except Exception:
             self.expenses = []
             self.currency = "USD"
+        for e in self.expenses:
+            if "date" in e:
+                try:
+                    e["date"] = datetime.strptime(str(e["date"]), "%Y-%m-%d").strftime("%Y-%m-%d")
+                except Exception:
+                    pass
 
     def save_expenses(self):
         try:
@@ -312,7 +365,9 @@ class ExpenseTracker:
 
     def refresh_tree(self):
         self.tree.delete(*self.tree.get_children())
-        for idx in self.get_filtered_indices():
+        indices = self.get_filtered_indices()
+        indices.sort(key=lambda i: self.expenses[i].get("date", ""))
+        for idx in indices:
             e = self.expenses[idx]
             self.tree.insert(
                 "", "end", iid=idx,
@@ -354,10 +409,10 @@ class ExpenseTracker:
         else:
             duration = "N/A"
         cats = len(set(e.get("category", "") for e in items))
-        self.sum_total.config(text=f"Total: {self.format_amount(total)}")
-        self.sum_duration.config(text=f"Duration: {duration}")
-        self.sum_categories.config(text=f"Categories: {cats}")
-        self.sum_count.config(text=f"Count: {len(items)}")
+        self.sum_total.config(text=self.format_amount(total))
+        self.sum_duration.config(text=duration)
+        self.sum_categories.config(text=str(cats))
+        self.sum_count.config(text=str(len(items)))
 
     def apply_filter(self):
         for v in (self.filter_from_var, self.filter_to_var):

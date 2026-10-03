@@ -1,5 +1,5 @@
 {
-    "currency": "PKR",
+    "currency": "AED",
     "expenses": [
         {
             "date": "2026-10-03",
@@ -21,15 +21,21 @@
         },
         {
             "date": "2026-10-03",
-            "category": "Food",
-            "description": "jfyufy",
-            "amount": 4.0
+            "category": "Transport",
+            "description": "Fair",
+            "amount": 150.0
         },
         {
-            "date": "2026-9-15",
+            "date": "2026-09-15",
             "category": "Food",
             "description": "Pasta",
             "amount": 1200.0
+        },
+        {
+            "date": "2026-09-25",
+            "category": "Health",
+            "description": "Checkup",
+            "amount": 300.0
         }
     ]
 }
