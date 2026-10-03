@@ -95,7 +95,7 @@ class ExpenseTracker:
     def __init__(self, root):
         self.root = root
         self.root.title("Final Expense Tracker")
-        self.root.geometry("780x640")
+        self.root.geometry("780x720")
         self.root.resizable(False, False)
 
         self.expenses = []
@@ -107,7 +107,9 @@ class ExpenseTracker:
         self.build_header()
         self.build_stats()
         self.build_buttons()
+        self.build_slicer()
         self.build_footer()
+        self.build_summary()
         self.build_list()
 
     def setup_logo(self):
@@ -201,17 +203,53 @@ class ExpenseTracker:
                 command=cmd,
             ).pack(side="left", padx=6, pady=10)
 
+    def build_slicer(self):
+        bar = tk.Frame(self.root, bg="#ecf0f1")
+        bar.pack(fill="x", pady=2)
+
+        tk.Label(bar, text="From:", font=("Helvetica", 10, "bold"), bg="#ecf0f1", fg="#2c3e50").pack(side="left", padx=(15, 3), pady=6)
+        self.filter_from_var = tk.StringVar()
+        tk.Entry(bar, textvariable=self.filter_from_var, width=12, font=("Helvetica", 10)).pack(side="left", pady=6)
+
+        tk.Label(bar, text="To:", font=("Helvetica", 10, "bold"), bg="#ecf0f1", fg="#2c3e50").pack(side="left", padx=(10, 3), pady=6)
+        self.filter_to_var = tk.StringVar()
+        tk.Entry(bar, textvariable=self.filter_to_var, width=12, font=("Helvetica", 10)).pack(side="left", pady=6)
+
+        tk.Label(bar, text="Category:", font=("Helvetica", 10, "bold"), bg="#ecf0f1", fg="#2c3e50").pack(side="left", padx=(10, 3), pady=6)
+        self.filter_category_var = tk.StringVar(value="All")
+        ttk.Combobox(bar, textvariable=self.filter_category_var, values=["All"] + CATEGORIES, state="readonly", width=12, font=("Helvetica", 10)).pack(side="left", pady=6)
+
+        tk.Button(bar, text="Apply", font=("Helvetica", 10, "bold"), bg="#27ae60", fg="white", width=8, command=self.apply_filter).pack(side="left", padx=8, pady=6)
+        tk.Button(bar, text="Clear", font=("Helvetica", 10, "bold"), bg="#e74c3c", fg="white", width=8, command=self.clear_filter).pack(side="left", pady=6)
+        tk.Label(bar, text="(dates: YYYY-MM-DD)", font=("Helvetica", 8, "italic"), bg="#ecf0f1", fg="#7f8c8d").pack(side="left", padx=10, pady=6)
+
     def build_footer(self):
         footer = tk.Frame(self.root, bg=HEADER_BG)
         footer.pack(side="bottom", fill="x")
         tk.Label(
             footer,
-            text="developed by : Manahil Tahir",
+            text="Developed by : Manahil Tahir",
             font=("Helvetica", 10, "bold"),
             fg=ACCENT,
             bg=HEADER_BG,
             pady=6,
         ).pack()
+
+    def build_summary(self):
+        panel = tk.Frame(self.root, bg="#2c3e50")
+        panel.pack(side="bottom", fill="x")
+
+        self.sum_total = tk.Label(panel, text="Total: $0.00", font=("Helvetica", 11, "bold"), fg=ACCENT, bg="#2c3e50")
+        self.sum_total.pack(side="left", padx=15, pady=6)
+
+        self.sum_duration = tk.Label(panel, text="Duration: N/A", font=("Helvetica", 11, "bold"), fg="white", bg="#2c3e50")
+        self.sum_duration.pack(side="left", padx=15, pady=6)
+
+        self.sum_categories = tk.Label(panel, text="Categories: 0", font=("Helvetica", 11, "bold"), fg="white", bg="#2c3e50")
+        self.sum_categories.pack(side="left", padx=15, pady=6)
+
+        self.sum_count = tk.Label(panel, text="Count: 0", font=("Helvetica", 11, "bold"), fg="white", bg="#2c3e50")
+        self.sum_count.pack(side="left", padx=15, pady=6)
 
     def build_list(self):
         list_frame = tk.Frame(self.root)
@@ -274,11 +312,69 @@ class ExpenseTracker:
 
     def refresh_tree(self):
         self.tree.delete(*self.tree.get_children())
-        for idx, e in enumerate(self.expenses):
+        for idx in self.get_filtered_indices():
+            e = self.expenses[idx]
             self.tree.insert(
                 "", "end", iid=idx,
                 values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), self.format_amount(float(e.get("amount", 0)))),
             )
+        self.update_summary()
+
+    def get_filtered_indices(self):
+        frm = self.filter_from_var.get().strip()
+        to = self.filter_to_var.get().strip()
+        cat = self.filter_category_var.get()
+        indices = []
+        for i, e in enumerate(self.expenses):
+            d = e.get("date", "")
+            if frm and d < frm:
+                continue
+            if to and d > to:
+                continue
+            if cat != "All" and e.get("category", "") != cat:
+                continue
+            indices.append(i)
+        return indices
+
+    def fmt_date(self, d):
+        try:
+            return datetime.strptime(d, "%Y-%m-%d").strftime("%d %b %Y")
+        except Exception:
+            return d
+
+    def update_summary(self):
+        items = [self.expenses[i] for i in self.get_filtered_indices()]
+        try:
+            total = sum(float(e.get("amount", 0)) for e in items)
+        except Exception:
+            total = 0.0
+        dates = [e.get("date", "") for e in items if e.get("date")]
+        if dates:
+            duration = f"{self.fmt_date(min(dates))}  to  {self.fmt_date(max(dates))}"
+        else:
+            duration = "N/A"
+        cats = len(set(e.get("category", "") for e in items))
+        self.sum_total.config(text=f"Total: {self.format_amount(total)}")
+        self.sum_duration.config(text=f"Duration: {duration}")
+        self.sum_categories.config(text=f"Categories: {cats}")
+        self.sum_count.config(text=f"Count: {len(items)}")
+
+    def apply_filter(self):
+        for v in (self.filter_from_var, self.filter_to_var):
+            d = v.get().strip()
+            if d:
+                try:
+                    datetime.strptime(d, "%Y-%m-%d")
+                except ValueError:
+                    messagebox.showwarning("Invalid Date", "Dates must be in YYYY-MM-DD format.")
+                    return
+        self.refresh_tree()
+
+    def clear_filter(self):
+        self.filter_from_var.set("")
+        self.filter_to_var.set("")
+        self.filter_category_var.set("All")
+        self.refresh_tree()
 
     def on_currency_change(self, *args):
         self.currency = self.currency_var.get()
