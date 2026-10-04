@@ -161,31 +161,31 @@ class ExpenseTracker:
         header.pack(fill="x")
 
         center = tk.Frame(header, bg=HEADER_BG)
-        center.pack(anchor="center", pady=8)
+        center.pack(anchor="center", pady=2)
 
         if self.logo_img:
-            self.logo_disp = self.logo_img.subsample(2, 2)
-            tk.Label(center, image=self.logo_disp, bg=HEADER_BG).pack(side="left", padx=10)
+            self.logo_disp = self.logo_img.subsample(4, 4)
+            tk.Label(center, image=self.logo_disp, bg=HEADER_BG).pack(side="left", padx=8)
         else:
-            self.logo_canvas = tk.Canvas(center, width=56, height=56, bg=HEADER_BG, highlightthickness=0)
-            self.logo_canvas.pack(side="left", padx=10)
+            self.logo_canvas = tk.Canvas(center, width=48, height=48, bg=HEADER_BG, highlightthickness=0)
+            self.logo_canvas.pack(side="left", padx=8)
             self.draw_logo()
 
         tk.Label(
             center,
             text="Personal Expense Tracker",
-            font=("Helvetica", 22, "bold"),
+            font=("Helvetica", 18, "bold"),
             fg=ACCENT,
             bg=HEADER_BG,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=8)
 
         tk.Label(
             header,
             text="Track  •  Manage  •  Save",
-            font=("Helvetica", 13, "italic"),
+            font=("Helvetica", 10, "italic"),
             fg="#bdc3c7",
             bg=HEADER_BG,
-        ).pack(anchor="center", pady=(0, 8))
+        ).pack(anchor="center", pady=(0, 2))
 
     def draw_logo(self):
         self.logo_canvas.delete("all")
@@ -304,15 +304,17 @@ class ExpenseTracker:
         self.tree = ttk.Treeview(list_frame, columns=columns, show="headings")
         for col in columns:
             self.tree.heading(col, text=col)
-        self.tree.column("Date", width=120, anchor="center")
-        self.tree.column("Category", width=120, anchor="center")
-        self.tree.column("Description", width=320, anchor="w")
-        self.tree.column("Amount", width=140, anchor="center")
+        self.tree.column("Date", width=120, anchor="center", stretch=False)
+        self.tree.column("Category", width=120, anchor="center", stretch=False)
+        self.tree.column("Description", width=500, anchor="w", stretch=False)
+        self.tree.column("Amount", width=140, anchor="center", stretch=False)
 
+        hscroll = ttk.Scrollbar(list_frame, orient="horizontal", command=self.tree.xview)
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.pack(side="left", fill="both", expand=True)
+        self.tree.configure(yscrollcommand=scrollbar.set, xscrollcommand=hscroll.set)
+        hscroll.pack(side="bottom", fill="x")
         scrollbar.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True)
 
         wheel = lambda e: self.tree.yview_scroll(int(-e.delta / 120), "units")
         self.tree.bind("<MouseWheel>", wheel)

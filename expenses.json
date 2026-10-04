@@ -1,17 +1,17 @@
 {
-    "currency": "AED",
+    "currency": "EUR",
     "expenses": [
         {
             "date": "2026-10-03",
             "category": "Shopping",
             "description": "Shirt",
-            "amount": 1500.0
+            "amount": 1700.0
         },
         {
             "date": "2026-10-03",
             "category": "Food",
-            "description": "Lunch",
-            "amount": 12.5
+            "description": "Lunch with friends on 13 of sep 2026, it laso include tea, snacks, fuel expense,adventurous activities.",
+            "amount": 1500.0
         },
         {
             "date": "2026-10-03",
@@ -36,6 +36,30 @@
             "category": "Health",
             "description": "Checkup",
             "amount": 300.0
+        },
+        {
+            "date": "2026-10-04",
+            "category": "Other",
+            "description": "Rent",
+            "amount": 500.0
+        },
+        {
+            "date": "2026-10-04",
+            "category": "Bills",
+            "description": "Internet",
+            "amount": 300.0
+        },
+        {
+            "date": "2026-10-04",
+            "category": "Food",
+            "description": "Dinner(Pizza party)",
+            "amount": 345.0
+        },
+        {
+            "date": "2026-10-04",
+            "category": "Education",
+            "description": "Course",
+            "amount": 400.0
         }
     ]
 }
