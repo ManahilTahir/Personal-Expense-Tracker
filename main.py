@@ -300,14 +300,15 @@ class ExpenseTracker:
         style.map("Treeview.Heading", background=[("active", "#1a1a2e")])
         style.configure("Treeview", font=("Helvetica", 10), rowheight=24, fieldbackground="white")
 
-        columns = ("Date", "Category", "Description", "Amount")
+        columns = ("S.No", "Date", "Category", "Amount", "Description")
         self.tree = ttk.Treeview(list_frame, columns=columns, show="headings")
         for col in columns:
             self.tree.heading(col, text=col)
+        self.tree.column("S.No", width=55, anchor="center", stretch=False)
         self.tree.column("Date", width=120, anchor="center", stretch=False)
         self.tree.column("Category", width=120, anchor="center", stretch=False)
-        self.tree.column("Description", width=500, anchor="w", stretch=False)
         self.tree.column("Amount", width=140, anchor="center", stretch=False)
+        self.tree.column("Description", width=600, anchor="w", stretch=False)
 
         hscroll = ttk.Scrollbar(list_frame, orient="horizontal", command=self.tree.xview)
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
@@ -319,8 +320,22 @@ class ExpenseTracker:
         wheel = lambda e: self.tree.yview_scroll(int(-e.delta / 120), "units")
         self.tree.bind("<MouseWheel>", wheel)
         list_frame.bind("<MouseWheel>", wheel)
+        self.tree.bind("<Configure>", self.on_tree_resize)
 
         self.refresh_tree()
+
+    def on_tree_resize(self, event):
+        self.adjust_description_width(event.width)
+
+    def adjust_description_width(self, visible):
+        if not visible or visible < 100:
+            return
+        max_desc = max((len(str(e.get("description", ""))) for e in self.expenses), default=0)
+        desc_needed = max(400, max_desc * 7 + 30)
+        other = 55 + 120 + 120 + 140
+        if other + desc_needed < visible + 250:
+            desc_needed = visible - other + 250
+        self.tree.column("Description", width=desc_needed)
 
     def load_expenses(self):
         self.expenses = []
@@ -369,12 +384,13 @@ class ExpenseTracker:
         self.tree.delete(*self.tree.get_children())
         indices = self.get_filtered_indices()
         indices.sort(key=lambda i: self.expenses[i].get("date", ""))
-        for idx in indices:
+        for sno, idx in enumerate(indices, start=1):
             e = self.expenses[idx]
             self.tree.insert(
                 "", "end", iid=idx,
-                values=(e.get("date", ""), e.get("category", ""), e.get("description", ""), self.format_amount(float(e.get("amount", 0)))),
+                values=(sno, e.get("date", ""), e.get("category", ""), self.format_amount(float(e.get("amount", 0))), e.get("description", "")),
             )
+        self.adjust_description_width(self.tree.winfo_width())
         self.update_summary()
 
     def get_filtered_indices(self):

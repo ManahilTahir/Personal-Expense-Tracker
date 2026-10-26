@@ -1,5 +1,5 @@
 {
-    "currency": "EUR",
+    "currency": "PKR",
     "expenses": [
         {
             "date": "2026-10-03",
@@ -10,8 +10,8 @@
         {
             "date": "2026-10-03",
             "category": "Food",
-            "description": "Lunch with friends on 13 of sep 2026, it laso include tea, snacks, fuel expense,adventurous activities.",
-            "amount": 1500.0
+            "description": "Lunch with friends on 13 of sep 2026, it also include tea, snacks, fuel expense and adventurous activities.",
+            "amount": 3500.0
         },
         {
             "date": "2026-10-03",
